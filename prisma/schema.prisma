@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  VENDOR
+  DESIGNER
+}
+
+enum ProductType {
+  SIMPLE
+  VARIABLE
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum RatingValue {
+  ONE
+  TWO
+  THREE
+  FOUR
+  FIVE
+}
+
+model User {
+  id               String          @id @default(uuid())
+  email            String          @unique
+  password         String
+  full_name        String?
+  phone            String?
+  is_active        Boolean         @default(true)
+  deleted_at       DateTime?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @default(now()) @updatedAt
+  roles            UserRole[]
+  orders           Order[]
+  shipping_address Json?
+  billing_address  Json?
+  wishlist         Product[]       @relation("Wishlist")
+  reviews          ProductReview[]
+}
+
+model UserRole {
+  user_id     String
+  role        Role
+  permissions Json
+  user        User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role])
+}
+
+model Category {
+  id         Int        @id @default(autoincrement())
+  name       String
+  slug       String     @unique
+  parent_id  Int?
+  is_active  Boolean    @default(true)
+  deleted_at DateTime?
+  created_at DateTime   @default(now())
+  attributes_normalized Json?
+  updated_at DateTime   @default(now()) @updatedAt
+  parent     Category?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  children   Category[] @relation("CategoryHierarchy")
+  products   Product[]
+}
+
+model Product {
+  id            String                  @id @default(uuid())
+  name          String
+  sku           String                  @unique
+  slug          String                  @unique
+  description   String?
+  type          ProductType             @default(SIMPLE)
+  base_price    Float? // Precio para productos SIMPLE
+  stock         Int?                    @default(0) // Stock para productos SIMPLE
+  min_stock     Int?                    @default(5) // Stock mínimo para productos SIMPLE
+  is_active     Boolean                 @default(true)
+  deleted_at    DateTime?
+  created_at    DateTime                @default(now())
+  updated_at    DateTime                @default(now()) @updatedAt
+  variants      ProductVariant[] // Solo para type VARIABLE
+  categories    Category[]
+  templates     DesignTemplateProduct[]
+  images        ProductImage[]
+  attributes    ProductAttribute[]
+  sales_count   Int                     @default(0)
+  stock_alert   Boolean                 @default(false) @map("stock_alert")
+  wishlisted_by User[]                  @relation("Wishlist")
+  reviews       ProductReview[]
+  orderItems    OrderItem[]
+  inventoryLogs InventoryLog[]
+
+  @@index([slug, is_active])
+  @@index([type])
+}
+
+model ProductImage {
+  id         String   @id @default(uuid())
+  product_id String
+  url        String
+  alt_text   String?
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+  product    Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id])
+}
+
+model ProductVariant {
+  id             String                @id @default(uuid())
+  product_id     String
+  sku_suffix     String
+  stock          Int
+  price          Float
+  min_stock      Int                   @default(5)
+  is_active      Boolean               @default(true)
+  deleted_at     DateTime?
+  created_at     DateTime              @default(now())
+  updated_at     DateTime              @default(now()) @updatedAt
+  product        Product               @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  order_items    OrderItem[]
+  images         ProductVariantImage[]
+  attributes     Json? // Atributos específicos de la variante (color, tamaño)
+  inventory_logs InventoryLog[]
+
+  @@index([product_id, sku_suffix])
+  @@index([is_active, stock])
+}
+
+model ProductVariantImage {
+  id         String         @id @default(uuid())
+  variant_id String
+  url        String
+  alt_text   String?
+  is_primary Boolean        @default(false)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @default(now()) @updatedAt
+  variant    ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  @@index([variant_id])
+}
+
+model ProductAttribute {
+  id         String  @id @default(uuid())
+  product_id String
+  name       String
+  value      String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id])
+}
+
+model ProductReview {
+  id         String      @id @default(uuid())
+  product_id String
+  user_id    String
+  rating     RatingValue
+  comment    String?
+  created_at DateTime    @default(now())
+  updated_at DateTime    @default(now()) @updatedAt
+  product    Product     @relation(fields: [product_id], references: [id])
+  user       User        @relation(fields: [user_id], references: [id])
+
+  @@index([product_id])
+  @@index([user_id])
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  user_id          String
+  status           OrderStatus @default(PENDING)
+  subtotal         Float
+  discount         Float       @default(0)
+  shipping         Float       @default(0)
+  tax              Float       @default(0)
+  total            Float
+  tracking_number  String?
+  delivery_date    DateTime?
+  shipping_address Json
+  billing_address  Json
+  notes            String?
+  is_active        Boolean     @default(true)
+  deleted_at       DateTime?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @default(now()) @updatedAt
+  user             User        @relation(fields: [user_id], references: [id])
+  items            OrderItem[]
+  payments         Payment[]
+
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+model OrderItem {
+  id               String          @id @default(uuid())
+  order_id         String
+  product_id       String?
+  variant_id       String?
+  template_id      String? // Si proviene de un DesignTemplate
+  quantity         Int
+  unit_price       Float
+  total_price      Float
+  discount_applied Float           @default(0)
+  order            Order           @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product          Product?        @relation(fields: [product_id], references: [id])
+  variant          ProductVariant? @relation(fields: [variant_id], references: [id])
+  template         DesignTemplate? @relation(fields: [template_id], references: [id])
+
+  @@index([order_id])
+  @@index([product_id])
+  @@index([variant_id])
+}
+
+model Payment {
+  id         String   @id @default(uuid())
+  order_id   String
+  gateway    String
+  metadata   Json
+  amount     Float
+  currency   String   @default("PEN")
+  gateway_id String?
+  status     String   @default("pending")
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+  order      Order    @relation(fields: [order_id], references: [id])
+
+  @@index([gateway, order_id])
+  @@index([status])
+}
+
+model DesignTemplate {
+  id              String                  @id @default(uuid())
+  name            String
+  slug            String                  @unique
+  description     String?
+  cover_image_url String?
+  discount        Float? // Descuento aplicable al paquete completo
+  room_type       String? // "sala", "dormitorio", "oficina"
+  style           String? // "moderno", "clásico", "rústico"
+  total_price     Float? // Precio calculado del paquete
+  is_active       Boolean                 @default(true)
+  deleted_at      DateTime?
+  created_at      DateTime                @default(now())
+  updated_at      DateTime                @default(now()) @updatedAt
+  products        DesignTemplateProduct[]
+  sales_count     Int                     @default(0)
+  featured        Boolean                 @default(false)
+  order_items     OrderItem[]
+
+  @@index([slug, is_active])
+}
+
+model DesignTemplateProduct {
+  template_id String
+  product_id  String
+  quantity    Int            @default(1)
+  is_optional Boolean        @default(false)
+  notes       String?
+  template    DesignTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@id([template_id, product_id])
+}
+
+model InventoryLog {
+  id           String          @id @default(uuid())
+  variant_id   String?
+  product_id   String
+  quantity     Int
+  movement     String // "in", "out", "adjustment", "sale", "return"
+  reason       String?
+  reference_id String? // order_id o otro identificador
+  created_at   DateTime        @default(now())
+  updated_at   DateTime        @default(now()) @updatedAt
+  variant      ProductVariant? @relation(fields: [variant_id], references: [id])
+  product      Product         @relation(fields: [product_id], references: [id])
+
+  @@index([product_id])
+  @@index([variant_id])
+  @@index([created_at])
+}

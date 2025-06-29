@@ -1,0 +1,10 @@
+import './auth.docs';
+import './category.docs';
+import './product.docs';
+import './productVariant.docs';
+import './designTemplate.docs';
+import './inventoryLog.docs';
+import './productReview.docs';
+import './order.docs';
+import './wishlist.docs';
+import './health.docs';
