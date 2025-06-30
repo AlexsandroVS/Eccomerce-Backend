@@ -88,11 +88,8 @@ const testMongoDB = async (): Promise<void> => {
   const start = Date.now();
   
   try {
-    const mongoDB = await connectMongoDB();
+    await connectMongoDB();
     const duration = Date.now() - start;
-    
-    // Test básico de ping
-    await mongoDB.command({ ping: 1 });
     
     // Test de salud
     const healthOk = await checkMongoHealth();
@@ -104,7 +101,7 @@ const testMongoDB = async (): Promise<void> => {
     const stats = await getMongoStats();
     
     addResult('MongoDB (Atlas)', 'success', 'Connected successfully', {
-      'Database': mongoDB.databaseName,
+      'Database': 'Connected',
       'Collections': stats?.collections || 0,
       'Data Size': stats?.dataSize ? `${stats.dataSize} MB` : 'N/A',
       'Storage Size': stats?.storageSize ? `${stats.storageSize} MB` : 'N/A'

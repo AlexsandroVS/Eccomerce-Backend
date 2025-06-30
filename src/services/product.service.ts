@@ -364,4 +364,21 @@ export const ProductService = {
       where: whereCondition,
     });
   },
+
+  // Listar solo productos activos y no eliminados
+  async listActive() {
+    return await prisma.product.findMany({
+      where: {
+        is_active: true,
+        deleted_at: null,
+      },
+      include: {
+        categories: true,
+        images: true,
+        attributes: true,
+        variants: true,
+      },
+      orderBy: { created_at: "desc" },
+    });
+  },
 };

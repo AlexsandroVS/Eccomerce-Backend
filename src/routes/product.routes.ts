@@ -99,4 +99,7 @@ router.delete(
   ProductController.removeImage
 );
 
+// Listar productos activos (público)
+router.get("/active", ProductController.listActive);
+
 export default router;

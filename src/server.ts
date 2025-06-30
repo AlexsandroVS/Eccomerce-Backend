@@ -4,6 +4,7 @@ import path from "path";
 import { connectDB, disconnectDB, checkDBHealth } from "./config/db.config";
 import { connectMongoDB, closeMongoDB, checkMongoHealth, getMongoStats } from "./config/mongo.config";
 import redis, { testRedisConnection, closeRedisConnection } from "./config/redis.config";
+import { testStripeConnection } from "./config/stripe.config";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import globalErrorHandler from './middlewares/error.middleware';
@@ -18,7 +19,9 @@ import designTemplateRoutes from "./routes/designTemplate.routes";
 import orderRoutes from "./routes/order.routes";
 import productReviewRoutes from "./routes/productReview.routes";
 import wishlistRoutes from "./routes/wishlist.routes";
+import paymentRoutes from "./routes/payment.routes";
 import { swaggerSpec } from "./docs/swagger";
+import "./docs/swagger/index";
 
 const app: Express = express();
 
@@ -80,10 +83,15 @@ app.get("/health", async (_req, res: Response) => {
     const mongoStatus = await checkMongoHealth();
     const mongoLatency = Date.now() - mongoStart;
     
+    // Test Stripe (opcional)
+    const stripeStart = Date.now();
+    const stripeStatus = process.env.STRIPE_SECRET_KEY ? await testStripeConnection() : null;
+    const stripeLatency = Date.now() - stripeStart;
+    
     // Get additional stats
     const mongoStats = mongoStatus ? await getMongoStats() : null;
 
-    const overallStatus = redisStatus && dbStatus && mongoStatus;
+    const overallStatus = redisStatus && dbStatus && (mongoStatus !== false) && (stripeStatus !== false);
     const totalLatency = Date.now() - startTime;
 
     res.status(overallStatus ? 200 : 503).json({
@@ -111,6 +119,11 @@ app.get("/health", async (_req, res: Response) => {
             dataSize: `${mongoStats.dataSize} MB`,
             storageSize: `${mongoStats.storageSize} MB`
           } : null
+        },
+        stripe: {
+          status: stripeStatus === null ? "not_configured" : (stripeStatus ? "healthy" : "unhealthy"),
+          provider: "stripe",
+          latency: stripeStatus !== null ? `${stripeLatency}ms` : null
         }
       },
       environment: {
@@ -183,6 +196,12 @@ app.get("/health/mongo", async (_req, res: Response) => {
   }
 });
 
+// Stripe webhook debe recibir raw body
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentRoutes);
+// El resto de rutas usa express.json()
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Rutas principales
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
@@ -193,8 +212,14 @@ app.use("/api/design-templates", designTemplateRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/product-reviews", productReviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // Documentación API
+app.get("/api-docs/swagger.json", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Middleware de manejo de errores (debe ir después de todas las rutas)
@@ -214,7 +239,6 @@ const startServer = async () => {
     
     const connectionPromises = [
       connectDB().then(() => console.log('✅ PostgreSQL (Render) connected')),
-      connectMongoDB().then(() => console.log('✅ MongoDB (Atlas) connected')),
       testRedisConnection().then(success => {
         if (success) {
           console.log('✅ Redis (Upstash) connected');
@@ -224,11 +248,41 @@ const startServer = async () => {
       })
     ];
     
-    // Esperar a que todas las conexiones se establezcan (máximo 30 segundos)
+    // Intentar conectar MongoDB, pero continuar si falla
+    let mongoConnected = false;
+    try {
+      await connectMongoDB();
+      console.log('✅ MongoDB (Atlas) connected');
+      mongoConnected = true;
+    } catch (mongoError) {
+      console.error('⚠️  MongoDB connection failed, continuing without logging:', 
+        mongoError instanceof Error ? mongoError.message : mongoError);
+      console.log('📝 Logs will be written to console only');
+    }
+    
+    // Test Stripe connection
+    let stripeConnected = false;
+    if (process.env.STRIPE_SECRET_KEY) {
+      try {
+        stripeConnected = await testStripeConnection();
+        if (stripeConnected) {
+          console.log('✅ Stripe connected');
+        } else {
+          console.log('⚠️  Stripe connection failed, payments will not work');
+        }
+      } catch (stripeError) {
+        console.error('⚠️  Stripe connection failed:', 
+          stripeError instanceof Error ? stripeError.message : stripeError);
+      }
+    } else {
+      console.log('ℹ️  Stripe not configured (STRIPE_SECRET_KEY missing)');
+    }
+    
+    // Esperar a que las conexiones críticas se establezcan
     await Promise.race([
       Promise.all(connectionPromises),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database connections timeout')), 30000)
+        setTimeout(() => reject(new Error('Critical database connections timeout')), 20000)
       )
     ]);
     
@@ -236,9 +290,10 @@ const startServer = async () => {
       console.log('\n🎉 Server started successfully!');
       console.log(`🌐 Server running on port ${PORT}`);
       console.log('📊 Connected services:');
-      console.log('  • PostgreSQL (Render) - Main database');
-      console.log('  • MongoDB (Atlas) - Logging & analytics');
-      console.log('  • Redis (Upstash) - Cache & sessions');
+      console.log('  • PostgreSQL (Render) - Main database ✅');
+      console.log('  • Redis (Upstash) - Cache & sessions ✅');
+      console.log(`  • MongoDB (Atlas) - Logging ${mongoConnected ? '✅' : '⚠️  (disabled)'}`);
+      console.log(`  • Stripe - Payments ${stripeConnected ? '✅' : '⚠️  (disabled)'}`);
       console.log('\n📖 Available endpoints:');
       console.log(`  • API Documentation: http://localhost:${PORT}/api-docs`);
       console.log(`  • Health Check: http://localhost:${PORT}/health`);

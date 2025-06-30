@@ -8,26 +8,27 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "build:watch": "tsc --watch",
-    
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
-    
     "test:connections": "ts-node src/config/testConnections.ts",
     "test:health": "curl http://localhost:3000/health || echo 'Server not running'",
-    
     "deploy:prepare": "npm run build && npm run prisma:generate && npm run prisma:migrate:deploy",
     "deploy:test": "npm run test:connections && echo 'All connections working'",
-    
     "clean": "rm -rf dist",
     "clean:install": "rm -rf node_modules package-lock.json && npm install",
-    
     "lint": "echo 'No linter configured'",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["ecommerce", "api", "postgresql", "mongodb", "redis"],
+  "keywords": [
+    "ecommerce",
+    "api",
+    "postgresql",
+    "mongodb",
+    "redis"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -43,11 +44,18 @@
     "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/mongodb": "^4.0.7",
+    "@types/mongoose": "^5.11.96",
     "@types/multer": "^1.4.12",
-    "@types/node": "^22.15.17",
+    "@types/node": "^22.15.34",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "eslint": "^9.30.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
+    "prettier": "^3.6.2",
     "prisma": "^6.8.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

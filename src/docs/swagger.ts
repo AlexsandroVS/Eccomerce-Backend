@@ -1,5 +1,10 @@
 import swaggerJSDoc from "swagger-jsdoc";
 
+// Configuración de rutas para diferentes entornos
+const apiPaths = process.env.NODE_ENV === 'production' 
+  ? ['./dist/docs/swagger/*.js', './dist/**/*.js']
+  : ['./src/docs/swagger/*.ts', './src/**/*.ts'];
+
 export const swaggerSpec = swaggerJSDoc({
   definition: {
     openapi: "3.0.1",
@@ -158,5 +163,5 @@ export const swaggerSpec = swaggerJSDoc({
       }
     ]
   },
-  apis: ['./src/docs/swagger/*.ts']
+  apis: apiPaths
 });

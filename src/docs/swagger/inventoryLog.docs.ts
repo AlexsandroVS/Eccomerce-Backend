@@ -190,4 +190,5 @@
  *       401:
  *         description: No autorizado
  *       403:
- *         description: Sin permisos (requiere ADMIN) 
+ *         description: Sin permisos (requiere ADMIN)
+ */

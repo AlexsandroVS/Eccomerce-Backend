@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: ecommerce-backend
+    env: node
+    plan: starter
+    buildCommand: npm ci && npm run build && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: https://your-frontend-domain.com
+    healthCheckPath: /health
+    autoDeploy: true
+    region: oregon 
