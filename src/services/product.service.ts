@@ -367,18 +367,163 @@ export const ProductService = {
 
   // Listar solo productos activos y no eliminados
   async listActive() {
-    return await prisma.product.findMany({
-      where: {
-        is_active: true,
-        deleted_at: null,
-      },
-      include: {
-        categories: true,
-        images: true,
-        attributes: true,
-        variants: true,
-      },
-      orderBy: { created_at: "desc" },
-    });
+    console.log('🔍 Service: Starting listActive query');
+    try {
+      // Obtener todos los productos sin filtros
+      const products = await prisma.product.findMany({
+        include: {
+          categories: {
+            select: {
+              id: true,
+              name: true,
+              slug: true
+            }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              alt_text: true,
+              is_primary: true
+            }
+          },
+          attributes: {
+            select: {
+              name: true,
+              value: true
+            }
+          },
+          variants: {
+            select: {
+              id: true,
+              sku_suffix: true,
+              stock: true,
+              price: true,
+              attributes: true,
+              images: {
+                select: {
+                  id: true,
+                  url: true,
+                  alt_text: true,
+                  is_primary: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { created_at: "desc" },
+      });
+
+      console.log(`✅ Service: Successfully retrieved ${products.length} products with all relations`);
+      return products;
+
+    } catch (error) {
+      console.error('❌ Service: Database error in listActive:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      throw new Error('Error al obtener los productos activos de la base de datos');
+    }
+  },
+
+  // Método para obtener catálogo autenticado (cualquier rol)
+  async getAuthenticatedCatalog() {
+    try {
+      const products = await prisma.product.findMany({
+        where: {
+          is_active: true,
+          deleted_at: null,
+        },
+        include: {
+          categories: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              alt_text: true,
+              is_primary: true
+            },
+            orderBy: {
+              is_primary: 'desc'
+            }
+          },
+          attributes: {
+            select: {
+              name: true,
+              value: true
+            }
+          },
+          variants: {
+            where: {
+              is_active: true,
+              deleted_at: null
+            },
+            select: {
+              id: true,
+              sku_suffix: true,
+              stock: true,
+              price: true,
+              attributes: true,
+              images: {
+                select: {
+                  id: true,
+                  url: true,
+                  alt_text: true,
+                  is_primary: true
+                },
+                orderBy: {
+                  is_primary: 'desc'
+                }
+              }
+            }
+          },
+          reviews: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              created_at: true,
+              user: {
+                select: {
+                  id: true,
+                }
+              }
+            }
+          }
+        },
+        orderBy: [
+          { created_at: 'desc' }
+        ],
+      });
+
+      // Calcular rating promedio para cada producto
+      const productsWithStats = products.map(product => {
+        const reviews = Array.isArray(product.reviews) ? product.reviews : [];
+        const totalReviews = reviews.length;
+        const averageRating = totalReviews > 0
+          ? reviews.reduce((sum: number, review: any) => sum + Number(review.rating), 0) / totalReviews
+          : 0;
+
+        return {
+          ...product,
+          stats: {
+            averageRating,
+            totalReviews,
+          }
+        };
+      });
+
+      return productsWithStats;
+    } catch (error) {
+      console.error('Error getting authenticated catalog:', error);
+      throw new Error('Error al obtener el catálogo de productos');
+    }
   },
 };

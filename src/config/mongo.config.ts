@@ -91,7 +91,7 @@ const closeMongoDB = async (): Promise<void> => {
       await client.close();
       client = null;
       db = null;
-      console.log('✅ MongoDB disconnected');
+    console.log('✅ MongoDB disconnected');
     }
   } catch (error) {
     console.error('❌ Error disconnecting from MongoDB:', error);

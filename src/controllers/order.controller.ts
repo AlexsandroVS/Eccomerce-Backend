@@ -6,7 +6,7 @@ export const OrderController = {
     try {
       const userId = (req as any).user.id; // Desde middleware de auth
       const order = await OrderService.create({ ...req.body, user_id: userId });
-      res.status(201).json(order);
+      res.status(201).json({ success: true, data: order });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

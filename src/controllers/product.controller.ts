@@ -152,11 +152,63 @@ export const ProductController = {
   },
 
   async listActive(_req: Request, res: Response) {
+    console.log('🔍 Controller: Received request for active products');
+    try {
+      // Intentar obtener productos activos
+      const products = await ProductService.listActive();
+      
+      // Siempre devolver un array (vacío si no hay productos)
+      res.status(200).json(products || []);
+      
+      // Log del resultado
+      console.log(`✅ Controller: Successfully returned ${products?.length || 0} products`);
+    } catch (error: any) {
+      // Log detallado del error
+      console.error('❌ Controller: Error listing active products:', {
+        error: error.message,
+        stack: error.stack
+      });
+      
+      // Devolver error 500 con mensaje genérico
+      res.status(500).json({
+        error: 'Error al obtener los productos activos',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  // Método específico para el catálogo público
+  async getCatalog(_req: Request, res: Response) {
+    console.log('🔍 Controller: Fetching product catalog');
     try {
       const products = await ProductService.listActive();
+      console.log(`✅ Controller: Found ${products.length} products for catalog`);
       res.json(products);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error('❌ Controller: Catalog error:', error);
+      res.status(500).json({ error: 'Error al cargar el catálogo de productos' });
     }
-  }
+  },
+
+  async getAuthenticatedCatalog(req: Request, res: Response) {
+    console.log('🔍 Controller: Received request for authenticated catalog from user:', req.user?.id);
+    try {
+      const products = await ProductService.getAuthenticatedCatalog();
+      
+      // Log del resultado
+      console.log(`✅ Controller: Successfully returned ${products.length} products for authenticated user`);
+      
+      // Send response with products and user info
+      res.status(200).json({
+        products,
+        user: req.user
+      });
+    } catch (error: any) {
+      console.error('❌ Controller: Error getting authenticated catalog:', error);
+      res.status(500).json({ 
+        error: 'Error al obtener el catálogo de productos',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
 };

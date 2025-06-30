@@ -6,7 +6,14 @@ import { createMulterUploader } from "../utils/multer.utils";
 const upload = createMulterUploader("products");
 const router = Router();
 
-// Crear producto
+// Rutas públicas (sin autenticación)
+router.get("/catalog", ProductController.getCatalog);
+router.get("/slug/:slug", ProductController.getBySlug);
+
+// Ruta autenticada para el catálogo (cualquier rol)
+router.get("/auth-catalog", authMiddleware, ProductController.getAuthenticatedCatalog);
+
+// Rutas que requieren autenticación de admin
 router.post(
   "/",
   authMiddleware,
@@ -14,7 +21,7 @@ router.post(
   ProductController.create
 );
 
-// Listar productos
+// Listar productos (admin)
 router.get("/", ProductController.list);
 
 // Listar productos eliminados (soft deleted)
@@ -27,9 +34,6 @@ router.get(
 
 // Contar productos
 router.get("/count", ProductController.getCount);
-
-// Obtener producto por slug (público)
-router.get("/slug/:slug", ProductController.getBySlug);
 
 // Obtener producto por ID o SKU
 router.get("/:id", ProductController.getById);
@@ -98,8 +102,5 @@ router.delete(
   checkRole(["ADMIN"]),
   ProductController.removeImage
 );
-
-// Listar productos activos (público)
-router.get("/active", ProductController.listActive);
 
 export default router;

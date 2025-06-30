@@ -68,7 +68,6 @@ export const OrderService = {
       subtotal += totalPrice;
 
       itemsData.push({
-        order_id: orderId,
         product_id: refProductId,
         variant_id: refVariantId,
         quantity: item.quantity,
