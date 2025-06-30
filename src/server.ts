@@ -26,7 +26,7 @@ import "./docs/swagger/index";
 const app: Express = express();
 
 
-// Configuración CORS
+// Configuración CORSF
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
