@@ -5,11 +5,11 @@ import { CookieOptions } from 'express';
 
 const COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  secure: true,
+  sameSite: 'none',
   maxAge: 4 * 24 * 60 * 60 * 1000, // 4 días
   path: '/',
-  domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
+  domain: process.env.COOKIE_DOMAIN
 };
 
 export const AuthController = {
