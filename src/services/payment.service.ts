@@ -68,14 +68,17 @@ export const PaymentService = {
   // Confirmar un pago (llamado desde webhook de Stripe)
   async confirmPayment(paymentIntentId: string) {
     try {
+      console.log(`[CONFIRM_PAYMENT] Buscando PaymentIntent en Stripe: ${paymentIntentId}`);
       // Obtener información actualizada de Stripe
       const stripeResult = await getPaymentIntent(paymentIntentId);
       
       if (!stripeResult.success || !stripeResult.paymentIntent) {
+        console.error(`[CONFIRM_PAYMENT] Error obteniendo PaymentIntent:`, stripeResult.error);
         throw new Error(stripeResult.error || "PaymentIntent not found");
       }
 
       const paymentIntent = stripeResult.paymentIntent;
+      console.log(`[CONFIRM_PAYMENT] PaymentIntent status: ${paymentIntent.status}, order_id: ${paymentIntent.metadata.order_id}`);
 
       // Actualizar el pago en la base de datos
       const payment = await prisma.payment.updateMany({
@@ -100,10 +103,11 @@ export const PaymentService = {
           updated_at: new Date()
         }
       });
+      console.log(`[CONFIRM_PAYMENT] Pagos actualizados:`, payment.count);
 
       // Si el pago fue exitoso, actualizar el estado de la orden
       if (paymentIntent.status === "succeeded") {
-        await prisma.order.updateMany({
+        const orderUpdate = await prisma.order.updateMany({
           where: { 
             id: paymentIntent.metadata.order_id 
           },
@@ -112,6 +116,7 @@ export const PaymentService = {
             updated_at: new Date()
           }
         });
+        console.log(`[CONFIRM_PAYMENT] Órdenes actualizadas:`, orderUpdate.count);
       }
 
       return {
@@ -120,7 +125,7 @@ export const PaymentService = {
         status: paymentIntent.status
       };
     } catch (error) {
-      console.error("Error confirming payment:", error);
+      console.error("[CONFIRM_PAYMENT] Error confirming payment:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Error desconocido"
