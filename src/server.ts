@@ -20,6 +20,7 @@ import orderRoutes from "./routes/order.routes";
 import productReviewRoutes from "./routes/productReview.routes";
 import wishlistRoutes from "./routes/wishlist.routes";
 import paymentRoutes from "./routes/payment.routes";
+import userRoutes from './routes/user.routes';
 import { swaggerSpec } from "./docs/swagger";
 import "./docs/swagger/index";
 
@@ -214,6 +215,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/product-reviews", productReviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/users", userRoutes);
 
 // Documentación API
 app.get("/api-docs/swagger.json", (_req, res) => {
