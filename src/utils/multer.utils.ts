@@ -1,6 +1,7 @@
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import slugify from 'slugify';
 
 export function createMulterUploader(folderName: string) {
   const storage = multer.diskStorage({
@@ -13,7 +14,12 @@ export function createMulterUploader(folderName: string) {
     },
     filename: (_req, file, cb) => {
       const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `${unique}-${file.originalname}`);
+      const originalName = file.originalname;
+      const ext = path.extname(originalName);
+      const base = path.basename(originalName, ext);
+      const safeBase = slugify(base, { lower: true, strict: true });
+      const safeName = `${safeBase}${ext}`;
+      cb(null, `${unique}-${safeName}`);
     }
   });
 
