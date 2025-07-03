@@ -29,7 +29,7 @@ const app: Express = express();
 
 // Configuración CORS
 const corsOptions = {
-  origin: '*', // Permitir cualquier origen
+  origin: 'http://localhost:5173', // Solo permite el frontend local
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -46,7 +46,7 @@ app.use(cookieParser());
 // Configuración de rutas estáticas para imágenes
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   setHeaders: (res, _path) => {
-    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Origin', 'http://localhost:5173');
     res.set('Access-Control-Allow-Credentials', 'true');
   }
 }));
