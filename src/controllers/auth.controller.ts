@@ -3,8 +3,6 @@ import { AuthService } from '../services/auth.service';
 import { UserRegisterData, UserLoginData } from '../types/auth.types';
 import { CookieOptions } from 'express';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 const COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: true,
