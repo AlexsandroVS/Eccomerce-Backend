@@ -105,7 +105,7 @@ export const OrderService = {
           create: {
             gateway: 'manual',
             amount: total,
-            status: 'succeed',
+            status: 'succeeded',
             metadata: {}
           }
         }
