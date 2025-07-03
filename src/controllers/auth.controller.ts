@@ -7,11 +7,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? 'none' : 'lax',
+  secure: true,
+  sameSite: 'none',
   maxAge: 4 * 24 * 60 * 60 * 1000, // 4 días
   path: '/',
-  ...(isProduction && process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
 };
 
 export const AuthController = {

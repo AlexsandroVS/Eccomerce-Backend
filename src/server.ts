@@ -27,9 +27,9 @@ import "./docs/swagger/index";
 const app: Express = express();
 
 
-// Configuración CORSF
+// Configuración CORS
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: '*', // Permitir cualquier origen
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -46,7 +46,7 @@ app.use(cookieParser());
 // Configuración de rutas estáticas para imágenes
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   setHeaders: (res, _path) => {
-    res.set('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
+    res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Credentials', 'true');
   }
 }));
