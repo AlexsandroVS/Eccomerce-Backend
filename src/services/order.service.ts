@@ -60,6 +60,11 @@ export const OrderService = {
             reference_id: orderId
           }
         });
+        // Decrementar el stock del producto simple
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { stock: { decrement: item.quantity } }
+        });
       } else {
         throw new Error('Ítem inválido: se requiere product_id o variant_id');
       }
@@ -86,7 +91,7 @@ export const OrderService = {
       data: {
         id: orderId,
         user_id: data.user_id,
-        status: 'PENDING',
+        status: 'DELIVERED',
         subtotal,
         shipping,
         discount,
@@ -100,7 +105,7 @@ export const OrderService = {
           create: {
             gateway: 'manual',
             amount: total,
-            status: 'pending',
+            status: 'succeed',
             metadata: {}
           }
         }
@@ -131,7 +136,19 @@ export const OrderService = {
     return await prisma.order.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' },
-      include: { items: true, payments: true }
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                images: { select: { url: true, is_primary: true }, orderBy: { is_primary: 'desc' } }
+              }
+            }
+          }
+        },
+        payments: true
+      }
     });
   },
 
