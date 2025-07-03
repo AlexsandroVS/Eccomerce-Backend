@@ -1,425 +1,322 @@
 # 🛒 E-commerce Backend API
 
-Backend del sistema Ecommerce construido con **Node.js**, **Express**, **TypeScript** y **Prisma ORM**.  
-Implementa autenticación segura con JWT almacenado en **cookies HttpOnly**.
+Backend completo para e-commerce con PostgreSQL, Redis, MongoDB y Stripe para pagos.
 
-## 🏗️ Arquitectura del Sistema
+## 🚀 Características
 
-### Base de Datos
-- **PostgreSQL**: Base de datos principal con Prisma ORM
-- **Redis**: Cache y sesiones de usuario
-- **MongoDB**: Logs y analytics
+- **Base de datos principal**: PostgreSQL (Render)
+- **Cache y sesiones**: Redis (Upstash)
+- **Logs y analytics**: MongoDB Atlas
+- **Pagos**: Stripe Integration
+- **Autenticación**: JWT con cookies
+- **Documentación**: Swagger UI
+- **Uploads**: Manejo de imágenes
+- **Docker**: Containerización completa
 
-### Estructura de Carpetas
-```
-src/
-├── config/              # Configuraciones de conexión
-│   ├── db.config.ts     # PostgreSQL + Prisma
-│   ├── redis.config.ts  # Redis client
-│   ├── mongo.config.ts  # MongoDB client
-│   └── testConnections.ts
-├── controllers/         # Controladores de la API
-│   ├── auth.controller.ts
-│   ├── product.controller.ts
-│   ├── category.controller.ts
-│   ├── order.controller.ts
-│   └── ...
-├── services/           # Lógica de negocio
-│   ├── auth.service.ts
-│   ├── product.service.ts
-│   ├── cache.service.ts
-│   └── ...
-├── routes/             # Definición de rutas
-│   ├── auth.routes.ts
-│   ├── product.routes.ts
-│   └── ...
-├── middlewares/        # Middlewares personalizados
-│   ├── auth.middleware.ts
-│   └── error.middleware.ts
-├── types/              # Tipos TypeScript
-├── utils/              # Utilidades
-└── docs/               # Documentación Swagger
-```
+## 📋 Prerrequisitos
 
-## 🗄️ Modelos de Base de Datos
-
-### User
-```prisma
-model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  password   String
-  role       UserRole @default(CUSTOMER)
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  
-  // Relaciones
-  profile    UserProfile?
-  orders     Order[]
-  reviews    ProductReview[]
-  wishlist   Wishlist[]
-}
-
-enum UserRole {
-  CUSTOMER
-  EMPLOYEE
-  ADMIN
-}
-```
-
-### Product
-```prisma
-model Product {
-  id          String      @id @default(uuid())
-  name        String
-  sku         String      @unique
-  slug        String      @unique
-  description String?
-  type        ProductType @default(SIMPLE)
-  base_price  Decimal?
-  is_active   Boolean     @default(true)
-  stock_alert Boolean     @default(false)
-  sales_count Int         @default(0)
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @updatedAt
-  deleted_at  DateTime?
-  
-  // Relaciones
-  attributes  ProductAttribute[]
-  images      ProductImage[]
-  variants    ProductVariant[]
-  categories  ProductCategory[]
-  reviews     ProductReview[]
-  orderItems  OrderItem[]
-}
-
-enum ProductType {
-  SIMPLE
-  VARIABLE
-}
-```
-
-### ProductVariant
-```prisma
-model ProductVariant {
-  id         String   @id @default(uuid())
-  product_id String
-  sku_suffix String
-  stock      Int      @default(0)
-  price      Decimal
-  min_stock  Int      @default(0)
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  deleted_at DateTime?
-  
-  // Relaciones
-  product    Product  @relation(fields: [product_id], references: [id])
-  attributes Json?
-  images     ProductVariantImage[]
-  orderItems OrderItem[]
-}
-```
-
-## 📡 Endpoints de la API
-
-### Autenticación (`/api/auth`)
-| Método | Endpoint | Descripción | Roles |
-|--------|----------|-------------|-------|
-| POST | `/register` | Registro de usuarios | Todos |
-| POST | `/login` | Login de usuarios | Todos |
-| POST | `/logout` | Logout | Autenticados |
-| GET | `/profile` | Perfil del usuario | Autenticados |
-| PUT | `/profile` | Actualizar perfil | Autenticados |
-
-### Productos (`/api/products`)
-| Método | Endpoint | Descripción | Roles |
-|--------|----------|-------------|-------|
-| GET | `/` | Listar productos | Todos |
-| POST | `/` | Crear producto | ADMIN, EMPLOYEE |
-| GET | `/:id` | Obtener producto | Todos |
-| PUT | `/:id` | Actualizar producto | ADMIN, EMPLOYEE |
-| DELETE | `/:id` | Eliminar producto | ADMIN, EMPLOYEE |
-| POST | `/:id/images` | Subir imágenes | ADMIN, EMPLOYEE |
-
-### Variantes (`/api/product-variants`)
-| Método | Endpoint | Descripción | Roles |
-|--------|----------|-------------|-------|
-| GET | `/` | Listar variantes | Todos |
-| POST | `/` | Crear variante | ADMIN, EMPLOYEE |
-| GET | `/:id` | Obtener variante | Todos |
-| PUT | `/:id` | Actualizar variante | ADMIN, EMPLOYEE |
-| DELETE | `/:id` | Eliminar variante | ADMIN, EMPLOYEE |
-
-### Categorías (`/api/categories`)
-| Método | Endpoint | Descripción | Roles |
-|--------|----------|-------------|-------|
-| GET | `/` | Listar categorías | Todos |
-| POST | `/` | Crear categoría | ADMIN, EMPLOYEE |
-| PUT | `/:id` | Actualizar categoría | ADMIN, EMPLOYEE |
-| DELETE | `/:id` | Eliminar categoría | ADMIN, EMPLOYEE |
-
-## 🔐 Sistema de Autenticación
-
-### JWT Token
-- **Almacenamiento**: Cookies HttpOnly
-- **Expiración**: 24 horas
-- **Refresh**: Implementado con Redis
-- **Seguridad**: CSRF protection
-
-### Roles y Permisos
-```typescript
-enum UserRole {
-  CUSTOMER = 'CUSTOMER',    // Cliente final
-  EMPLOYEE = 'EMPLOYEE',    // Empleado (gestión productos)
-  ADMIN = 'ADMIN'          // Administrador (acceso total)
-}
-```
-
-### Middleware de Autenticación
-```typescript
-// Verificar token JWT
-authMiddleware(req, res, next)
-
-// Verificar rol específico
-requireRole(['ADMIN', 'EMPLOYEE'])(req, res, next)
-```
-
-## 🚀 Instalación y Configuración
-
-### 1. Prerrequisitos
 - Node.js 18+
-- PostgreSQL 14+
-- Redis 6+
-- MongoDB 5+ (opcional para logs)
+- PostgreSQL (Render)
+- Redis (Upstash)
+- MongoDB Atlas (opcional)
+- Stripe Account
 
-### 2. Instalación
+## 🔧 Instalación
+
+### 1. Clonar y instalar dependencias
+
 ```bash
-# Clonar repositorio
-git clone https://github.com/tu-usuario/ecommerce-project.git
+git clone <repository-url>
 cd Eccomerce
-
-# Instalar dependencias
 npm install
-
-# Configurar variables de entorno
-cp .env.example .env
 ```
 
-### 3. Configuración de Base de Datos
-```bash
-# Ejecutar migraciones
-npx prisma migrate dev --name init
+### 2. Configurar variables de entorno
 
+Crear archivo `.env`:
+
+```env
+# Server
+NODE_ENV=development
+PORT=3000
+
+# Database
+DATABASE_URL="postgresql://user:password@host:port/database"
+
+# Redis
+REDIS_URL="redis://user:password@host:port"
+
+# MongoDB (opcional)
+MONGODB_URI="mongodb+srv://user:password@cluster.mongodb.net/database"
+
+# JWT
+JWT_SECRET="your-super-secret-jwt-key"
+
+# Stripe
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
+# Frontend URL
+FRONTEND_URL="http://localhost:5173"
+```
+
+### 3. Configurar base de datos
+
+```bash
 # Generar cliente Prisma
 npx prisma generate
 
-# Poblar base de datos (opcional)
-npm run seed
+# Ejecutar migraciones
+npx prisma migrate dev
+
+# (Opcional) Ver datos con Prisma Studio
+npx prisma studio
 ```
 
-### 4. Variables de Entorno
-```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/ecommerce"
-REDIS_URL="redis://localhost:6379"
-MONGODB_URI="mongodb://localhost:27017/ecommerce_logs"
+### 4. Ejecutar en desarrollo
 
-# JWT
-JWT_SECRET="tu-secret-super-seguro"
-JWT_EXPIRES_IN="24h"
-
-# Server
-PORT=3000
-NODE_ENV=development
-
-# File Upload
-UPLOAD_PATH="./uploads"
-MAX_FILE_SIZE=5242880
+```bash
+npm run dev
 ```
 
-## 📦 Scripts Disponibles
+## 🐳 Docker
+
+### Construir imagen
+
+```bash
+docker build -t ecommerce-backend .
+```
+
+### Ejecutar contenedor
+
+```bash
+docker run -d \
+  --name ecommerce-backend \
+  -p 3000:3000 \
+  --env-file .env \
+  ecommerce-backend
+```
+
+## 🚀 Deploy a Render
+
+### 1. Preparar el proyecto
+
+```bash
+# Verificar que todo funciona
+npm run test:connections
+npm run build
+```
+
+### 2. Configurar en Render
+
+1. Conectar tu repositorio de GitHub
+2. Configurar como **Web Service**
+3. Usar las siguientes configuraciones:
+
+**Build Command:**
+```bash
+npm ci && npm run build && npx prisma generate
+```
+
+**Start Command:**
+```bash
+npm start
+```
+
+### 3. Variables de entorno en Render
+
+Configurar las siguientes variables en Render:
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `NODE_ENV` | Entorno | `production` |
+| `PORT` | Puerto del servidor | `3000` |
+| `DATABASE_URL` | URL de PostgreSQL | `postgresql://...` |
+| `REDIS_URL` | URL de Redis | `redis://...` |
+| `MONGODB_URI` | URL de MongoDB (opcional) | `mongodb+srv://...` |
+| `JWT_SECRET` | Clave secreta para JWT | `your-secret-key` |
+| `STRIPE_SECRET_KEY` | Clave secreta de Stripe | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Secreto del webhook | `whsec_...` |
+| `FRONTEND_URL` | URL del frontend | `https://your-app.com` |
+
+### 4. Configurar Stripe
+
+1. **Crear cuenta en Stripe**: https://stripe.com
+2. **Obtener claves API**:
+   - Dashboard → Developers → API Keys
+   - Copiar `Publishable key` y `Secret key`
+3. **Configurar webhook**:
+   - Dashboard → Developers → Webhooks
+   - Endpoint: `https://your-app.onrender.com/api/payments/webhook`
+   - Events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`
+
+## 📊 Endpoints Principales
+
+### Autenticación
+- `POST /api/auth/register` - Registro de usuario
+- `POST /api/auth/login` - Inicio de sesión
+- `POST /api/auth/logout` - Cerrar sesión
+- `GET /api/auth/profile` - Perfil del usuario
+
+### Productos
+- `GET /api/products/active` - Listar productos activos
+- `GET /api/products/{id}` - Obtener producto
+- `POST /api/products` - Crear producto (admin)
+- `PATCH /api/products/{id}` - Actualizar producto (admin)
+
+### Categorías
+- `GET /api/categories` - Listar categorías
+- `POST /api/categories` - Crear categoría (admin)
+- `GET /api/categories/{id}/products` - Productos por categoría
+
+### Pagos (Stripe)
+- `POST /api/payments/create` - Crear PaymentIntent
+- `POST /api/payments/webhook` - Webhook de Stripe
+- `POST /api/payments/refund` - Reembolsar pago
+- `GET /api/payments/order/{orderId}` - Pagos de una orden
+
+### Órdenes
+- `POST /api/orders` - Crear orden
+- `GET /api/orders/user` - Órdenes del usuario
+- `GET /api/orders/{id}` - Obtener orden
+
+### Documentación
+- `GET /api-docs` - Swagger UI
+- `GET /api-docs/swagger.json` - Especificación OpenAPI
+
+### Health Checks
+- `GET /health` - Estado general del sistema
+- `GET /health/redis` - Estado de Redis
+- `GET /health/mongo` - Estado de MongoDB
+
+## 🔍 Monitoreo y Logs
+
+### Health Check Completo
+
+```bash
+curl https://your-app.onrender.com/health
+```
+
+Respuesta:
+```json
+{
+  "status": "OK",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "uptime": 3600,
+  "totalLatency": "150ms",
+  "services": {
+    "redis": { "status": "healthy", "latency": "5ms" },
+    "postgres": { "status": "healthy", "latency": "25ms" },
+    "mongo": { "status": "healthy", "latency": "120ms" },
+    "stripe": { "status": "healthy", "latency": "200ms" }
+  }
+}
+```
+
+### Logs en Render
+
+- Dashboard → Tu servicio → Logs
+- Monitorear errores y performance
+
+## 🛠️ Comandos Útiles
 
 ```bash
 # Desarrollo
-npm run dev              # Servidor con hot reload
-npm run build            # Build para producción
-npm run start            # Iniciar en producción
+npm run dev                    # Servidor de desarrollo
+npm run build                  # Compilar TypeScript
+npm run test:connections       # Probar conexiones
 
 # Base de datos
-npm run prisma:studio    # Abrir Prisma Studio
-npm run migrate          # Ejecutar migraciones
-npm run seed             # Poblar base de datos
-npm run db:reset         # Resetear base de datos
+npm run prisma:generate        # Generar cliente Prisma
+npm run prisma:migrate         # Ejecutar migraciones
+npm run prisma:studio          # Abrir Prisma Studio
 
-# Testing
-npm run test             # Tests unitarios
-npm run test:e2e         # Tests end-to-end
-npm run test:coverage    # Coverage de tests
+# Deploy
+npm run deploy:prepare         # Preparar para deploy
+npm run deploy:test           # Probar antes del deploy
 
-# Linting y formateo
-npm run lint             # ESLint
-npm run lint:fix         # ESLint con auto-fix
-npm run format           # Prettier
+# Limpieza
+npm run clean                 # Limpiar dist/
+npm run clean:install         # Reinstalar dependencias
 ```
 
-## 🧪 Testing
+## 🔒 Seguridad
 
-### Estructura de Tests
-```
-tests/
-├── unit/                # Tests unitarios
-│   ├── services/
-│   ├── controllers/
-│   └── utils/
-├── integration/         # Tests de integración
-│   ├── auth.test.ts
-│   ├── products.test.ts
-│   └── categories.test.ts
-└── e2e/                # Tests end-to-end
-    └── api.test.ts
-```
+### Variables de Entorno Críticas
 
-### Ejecutar Tests
+- `JWT_SECRET`: Clave única y compleja
+- `STRIPE_SECRET_KEY`: Solo claves de producción en producción
+- `DATABASE_URL`: URL segura con SSL
+- `REDIS_URL`: URL segura con TLS
+
+### Configuraciones de Seguridad
+
+- CORS configurado para dominio específico
+- JWT con expiración
+- Validación de entrada en todos los endpoints
+- Sanitización de datos
+- Rate limiting (implementar si es necesario)
+
+## 📈 Performance
+
+### Optimizaciones Implementadas
+
+- **Connection Pooling**: PostgreSQL y MongoDB
+- **Redis Caching**: Sesiones y datos frecuentes
+- **Lazy Loading**: Conexiones bajo demanda
+- **Graceful Shutdown**: Cierre limpio de conexiones
+- **Health Checks**: Monitoreo continuo
+
+### Métricas a Monitorear
+
+- Latencia de base de datos
+- Uso de memoria
+- Tiempo de respuesta de API
+- Tasa de errores
+- Uso de Redis
+
+## 🐛 Troubleshooting
+
+### Problemas Comunes
+
+1. **Error de conexión a base de datos**
+   ```bash
+   npm run test:connections
+   ```
+
+2. **Error de Stripe**
+   - Verificar claves API
+   - Verificar webhook endpoint
+   - Revisar logs de Stripe
+
+3. **Error de Redis**
+   - Verificar URL de Redis
+   - Verificar configuración TLS
+
+4. **Error de MongoDB**
+   - Verificar IP whitelist en Atlas
+   - Verificar credenciales
+
+### Logs Útiles
+
 ```bash
-# Todos los tests
-npm run test
-
-# Tests específicos
-npm run test -- --grep "auth"
-
-# Tests con coverage
-npm run test:coverage
-
-# Tests en modo watch
-npm run test:watch
-```
-
-## 📊 Logging y Monitoreo
-
-### Logs Estructurados
-```typescript
-// Ejemplo de logging
-logger.info('Product created', {
-  productId: product.id,
-  userId: req.user.id,
-  action: 'CREATE_PRODUCT'
-});
-```
-
-### Métricas
-- Request/response times
-- Error rates
-- Database query performance
-- Memory usage
-
-## 🔧 Configuración de Desarrollo
-
-### Hot Reload
-```bash
+# Ver logs en desarrollo
 npm run dev
-# Servidor se reinicia automáticamente en cambios
+
+# Ver logs en Render
+# Dashboard → Tu servicio → Logs
+
+# Health check
+curl https://your-app.onrender.com/health
 ```
 
-### Debugging
-```bash
-# Con Node.js inspector
-npm run dev:debug
+## 📞 Soporte
 
-# Con VS Code
-# Configurar launch.json para debugging
-```
+- **Documentación API**: `/api-docs`
+- **Health Check**: `/health`
+- **Logs**: Render Dashboard
+- **Issues**: GitHub Issues
 
-### Prisma Studio
-```bash
-npm run prisma:studio
-# Abre interfaz web para inspeccionar DB
-```
+## 📄 Licencia
 
-## 🚀 Despliegue
-
-### Producción
-```bash
-# Build
-npm run build
-
-# Variables de entorno de producción
-NODE_ENV=production
-PORT=3000
-
-# Iniciar
-npm run start
-```
-
-### Docker
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-## 📈 Estado Actual del Desarrollo
-
-### ✅ Implementado
-- [x] Sistema de autenticación JWT
-- [x] CRUD de productos
-- [x] Sistema de variantes
-- [x] Gestión de categorías
-- [x] Upload de imágenes
-- [x] Middleware de autorización
-- [x] Validación de datos
-- [x] Manejo de errores
-- [x] Documentación Swagger
-
-### 🚧 En Desarrollo
-- [ ] Sistema de carrito (Redis)
-- [ ] Gestión de órdenes
-- [ ] Sistema de pagos
-- [ ] Wishlist
-- [ ] Sistema de reseñas
-- [ ] Notificaciones
-
-### 📋 Pendientes
-- [ ] Tests unitarios completos
-- [ ] Tests de integración
-- [ ] Performance optimization
-- [ ] Rate limiting
-- [ ] API versioning
-- [ ] GraphQL support
-
-## 🤝 Contribuir
-
-### Flujo de Trabajo
-1. Fork el repositorio
-2. Crear rama feature: `git checkout -b feature/nueva-funcionalidad`
-3. Hacer commits descriptivos
-4. Push y crear Pull Request
-
-### Convenciones
-- **Commits**: [Conventional Commits](https://www.conventionalcommits.org/)
-- **Branches**: `feature/`, `fix/`, `hotfix/`, `docs/`
-- **Code Style**: ESLint + Prettier
-- **Tests**: Requeridos para nuevas funcionalidades
-
-## 📚 Documentación Adicional
-
-- [API Documentation](./docs/swagger/)
-- [Database Schema](./prisma/schema.prisma)
-- [Environment Variables](./.env.example)
-- [Deployment Guide](./docs/deployment.md)
-
-## 🆘 Soporte
-
-- **Issues**: Crear issue en GitHub
-- **Discussions**: Usar GitHub Discussions
-- **Email**: contacto@ecommerce.com
-
----
-
-**Desarrollado con ❤️ por el equipo de E-commerce Backend**
+MIT License 
